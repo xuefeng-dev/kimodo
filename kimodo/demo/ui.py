@@ -694,10 +694,6 @@ def create_gui(
                     initial_value="output.npz",
                     hint="SOMA .bvh, Kimodo or AMASS .npz, or G1 MuJoCo .csv",
                 )
-                gui_load_motion_button = client.gui.add_button(
-                    "Load Motion",
-                    hint="Load the selected motion",
-                )
                 gui_load_motion_time_offset_number = client.gui.add_number(
                     "Time Offset (s)",
                     initial_value=0.0,
@@ -706,6 +702,10 @@ def create_gui(
                         "Positive: pad the start with the first-frame pose. "
                         "Negative: trim from the start."
                     ),
+                )
+                gui_load_motion_button = client.gui.add_button(
+                    "Load Motion",
+                    hint="Load the selected motion",
                 )
             with client.gui.add_folder("Constraints", expand_by_default=False):
                 gui_save_constraints_path_text = client.gui.add_text(
