@@ -4,7 +4,13 @@ FROM nvcr.io/nvidia/pytorch:24.10-py3
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    HF_ENDPOINT=https://huggingface.co \
+    HF_HOME=/workspace/.cache/huggingface \
+    HUGGINGFACE_CACHE_DIR=/workspace/.cache/huggingface \
+    TEXT_ENCODERS_DIR=/workspace/text_encoders \
+    CHECKPOINT_DIR=/workspace/checkpoints \
+    LOCAL_CACHE=True
 
 # Where your code will live inside the container
 WORKDIR /workspace
@@ -37,6 +43,12 @@ RUN git clone https://github.com/nv-tlabs/kimodo-viser.git /workspace/kimodo-vis
 RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip install --upgrade pip \
  && SKIP_MOTION_CORRECTION_IN_SETUP=1 python -m pip install -r docker_requirements.txt
+
+# 从本地模型缓存目录复制 Vast.ai 默认启动需要的模型，避免反复联网下载。
+# 构建时传入：
+#   docker build --build-context model_cache=/root/dev/kimodo_model_cache ...
+COPY --from=model_cache /checkpoints /workspace/checkpoints
+COPY --from=model_cache /text_encoders /workspace/text_encoders
 
 # Use the docker-entrypoint script, to allow the docker to run as the actual user instead of root
 COPY kimodo/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
