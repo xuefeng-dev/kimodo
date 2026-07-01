@@ -52,6 +52,7 @@ RUN python -m viser._client_autobuild
 #   docker build --build-context model_cache=/root/dev/kimodo_model_cache ...
 COPY --from=model_cache /checkpoints /workspace/checkpoints
 COPY --from=model_cache /text_encoders /workspace/text_encoders
+COPY --from=model_cache /huggingface /workspace/.cache/huggingface
 
 # Use the docker-entrypoint script, to allow the docker to run as the actual user instead of root
 COPY kimodo/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
