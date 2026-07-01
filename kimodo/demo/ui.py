@@ -11,6 +11,7 @@ from kimodo.constraints import load_constraints_lst, save_constraints_lst
 from kimodo.exports.bvh import motion_to_bvh_bytes, save_motion_bvh
 from kimodo.exports.motion_io import (
     amass_npz_to_bytes,
+    apply_motion_time_offset,
     g1_csv_to_bytes,
     kimodo_npz_to_bytes,
     load_motion_file,
@@ -697,6 +698,15 @@ def create_gui(
                     "Load Motion",
                     hint="Load the selected motion",
                 )
+                gui_load_motion_time_offset_number = client.gui.add_number(
+                    "Time Offset (s)",
+                    initial_value=0.0,
+                    step=0.1,
+                    hint=(
+                        "Positive: pad the start with the first-frame pose. "
+                        "Negative: trim from the start."
+                    ),
+                )
             with client.gui.add_folder("Constraints", expand_by_default=False):
                 gui_save_constraints_path_text = client.gui.add_text(
                     "Save Path", initial_value="output_constraints.json"
@@ -929,6 +939,16 @@ def create_gui(
                         session.skeleton, joints_pos, joints_rot
                     )
 
+                time_offset_s = float(gui_load_motion_time_offset_number.value)
+                if abs(time_offset_s) >= 1e-9:
+                    joints_pos, joints_rot, foot_contacts = apply_motion_time_offset(
+                        joints_pos,
+                        joints_rot,
+                        foot_contacts,
+                        time_offset_s,
+                        float(session.model_fps),
+                    )
+
                 # Update duration and frame range based on loaded motion
                 num_frames = joints_pos.shape[0]
                 duration = num_frames / session.model_fps
@@ -968,8 +988,16 @@ def create_gui(
                 try:
                     load_motion(event_client, load_path)
 
+                    offset_s = float(gui_load_motion_time_offset_number.value)
+                    offset_note = ""
+                    if abs(offset_s) >= 1e-9:
+                        sign = "+" if offset_s > 0 else ""
+                        offset_note = f", time offset {sign}{offset_s:.2f}s"
                     loading_notif.title = "Motion loaded!"
-                    loading_notif.body = f"Loaded motion from {load_path} ({session.max_frame_idx + 1} frames, {session.cur_duration:.2f}s)"
+                    loading_notif.body = (
+                        f"Loaded motion from {load_path} "
+                        f"({session.max_frame_idx + 1} frames, {session.cur_duration:.2f}s{offset_note})"
+                    )
                     loading_notif.loading = False
                     loading_notif.with_close_button = True
                     loading_notif.auto_close_seconds = 5.0

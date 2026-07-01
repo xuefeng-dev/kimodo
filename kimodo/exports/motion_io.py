@@ -96,6 +96,45 @@ def resample_motion_dict_to_kimodo_fps(
     return complete_motion_dict(local_out, root_out, skeleton, float(target_fps)), True
 
 
+def apply_motion_time_offset(
+    joints_pos: torch.Tensor,
+    joints_rot: torch.Tensor,
+    foot_contacts: torch.Tensor | None,
+    offset_seconds: float,
+    fps: float,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
+    """沿时间轴对动作张量施加偏移。
+
+    ``offset_seconds > 0``：在序列开头用首帧姿态填充对应时长。
+    ``offset_seconds < 0``：从序列开头裁掉对应时长（至少保留 1 帧）。
+    """
+    if abs(offset_seconds) < 1e-9 or fps <= 0:
+        return joints_pos, joints_rot, foot_contacts
+
+    frame_delta = int(round(offset_seconds * fps))
+    if frame_delta == 0:
+        return joints_pos, joints_rot, foot_contacts
+
+    if frame_delta > 0:
+        first_pos = joints_pos[:1].expand(frame_delta, *joints_pos.shape[1:])
+        first_rot = joints_rot[:1].expand(frame_delta, *joints_rot.shape[1:])
+        joints_pos = torch.cat([first_pos, joints_pos], dim=0)
+        joints_rot = torch.cat([first_rot, joints_rot], dim=0)
+        if foot_contacts is not None:
+            first_fc = foot_contacts[:1].expand(frame_delta, *foot_contacts.shape[1:])
+            foot_contacts = torch.cat([first_fc, foot_contacts], dim=0)
+    else:
+        trim = min(-frame_delta, int(joints_pos.shape[0]) - 1)
+        if trim <= 0:
+            return joints_pos, joints_rot, foot_contacts
+        joints_pos = joints_pos[trim:]
+        joints_rot = joints_rot[trim:]
+        if foot_contacts is not None:
+            foot_contacts = foot_contacts[trim:]
+
+    return joints_pos, joints_rot, foot_contacts
+
+
 def warn_kimodo_npz_framerate(source_fps: float, t_before: int, t_after: int) -> None:
     """Emit a warning after time resampling for Kimodo NPZ (linear root, quaternion slerp per
     joint)."""
